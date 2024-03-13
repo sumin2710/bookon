@@ -17,11 +17,10 @@ import { SeatService } from 'src/seat/seat.service';
 import { MemberService } from 'src/member/member.service';
 import { EventTimeService } from 'src/event-time/event-time.service';
 import _ from 'lodash';
-import Redlock from 'redlock';
+import { RedlockService } from 'src/redlock/redlock.service';
+
 @Injectable()
 export class BookingService {
-  private redlock: Redlock;
-
   constructor(
     @InjectRepository(Booking)
     private readonly bookingRepository: Repository<Booking>,
@@ -30,6 +29,7 @@ export class BookingService {
     private readonly seatService: SeatService,
     private readonly memberService: MemberService,
     private readonly eventTimeService: EventTimeService,
+    private readonly redlockService: RedlockService,
   ) {}
 
   async reserve(email: string, eventId: number, reserveDto: ReserveDto) {
@@ -93,80 +93,95 @@ export class BookingService {
         (seat.section === section3 && seat.seatNum === seatNum3) ||
         (seat.section === section4 && seat.seatNum === seatNum4),
     );
-    console.log('예매 가능 좌석들 : ', canReserve);
+
     if (canReserve.length === 0) {
       throw new ConflictException('선택하신 좌석들이 이미 예매되었습니다.');
     }
 
-    // 트랜잭션 시작
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+    // redlock
+    const redlock = this.redlockService.getRedlock();
+    const resource = `locks:ticket:${eventId}`;
+    const ttl = 1000; // ms
 
+    let lock;
     try {
-      for (const seat of canReserve) {
-        // 예매 전 좌석이 정말 available한지 확인
-        if ((await this.seatService.isAvailableSeat(seat.id)) === false) {
-          throw new ConflictException(
-            `선택하신 좌석 (${seat.section}, ${seat.seatNum})이 이미 예매되었습니다.`,
+      lock = await redlock.acquire([resource], ttl); // lock 획득 시도
+
+      // 트랜잭션 시작
+      const queryRunner = this.dataSource.createQueryRunner();
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+
+      try {
+        for (const seat of canReserve) {
+          // 예매 전 좌석이 정말 available한지 확인
+          if ((await this.seatService.isAvailableSeat(seat.id)) === false) {
+            throw new ConflictException(
+              `선택하신 좌석 (${seat.section}, ${seat.seatNum})이 이미 예매되었습니다.`,
+            );
+          }
+
+          // 좌석 가격 계산
+          totalPrice += seat.price;
+        }
+
+        // 사용자의 포인트가 충분한지 확인
+        if (member.point < totalPrice) {
+          throw new ConflictException('포인트가 부족합니다.');
+        }
+
+        // 예매 생성
+        const existingEvent = await this.eventService.findOne(eventId);
+        const existingEventTime = await this.eventTimeService.findOne(
+          canReserve[0].eventTimeId,
+        );
+        const newBooking = await queryRunner.manager.save(Booking, {
+          bookingDate: existingEventTime.time,
+          deliveryMethod,
+          eventId: existingEvent.id,
+          eventName: existingEvent.name,
+          eventRuntime: existingEvent.runtime,
+          eventTimeId: existingEventTime.id,
+          memberId: member.id,
+          ticketCount: canReserve.length,
+          totalPrice,
+          phone,
+          deliveryAddr: address,
+          deliveryName: name,
+        });
+
+        // 충분하면, 사용자의 포인트 차감
+        const reason = `티켓 예매: 예매번호 ${newBooking.id}번`;
+        await this.memberService.decreasePoint(
+          queryRunner,
+          member.id,
+          totalPrice,
+          reason,
+        );
+
+        // 좌석 상태 업데이트
+        for (const seat of canReserve) {
+          await this.seatService.updateForReserve(
+            queryRunner,
+            seat.id,
+            newBooking.id,
           );
         }
 
-        // 좌석 가격 계산
-        totalPrice += seat.price;
+        await queryRunner.commitTransaction();
+
+        return newBooking;
+      } catch (err) {
+        await queryRunner.rollbackTransaction();
+        throw err;
+      } finally {
+        await queryRunner.release();
       }
 
-      // 사용자의 포인트가 충분한지 확인
-      if (member.point < totalPrice) {
-        throw new ConflictException('포인트가 부족합니다.');
-      }
-
-      // 예매 생성
-      const existingEvent = await this.eventService.findOne(eventId);
-      const existingEventTime = await this.eventTimeService.findOne(
-        canReserve[0].eventTimeId,
-      );
-      const newBooking = await queryRunner.manager.save(Booking, {
-        bookingDate: existingEventTime.time,
-        deliveryMethod,
-        eventId: existingEvent.id,
-        eventName: existingEvent.name,
-        eventRuntime: existingEvent.runtime,
-        eventTimeId: existingEventTime.id,
-        memberId: member.id,
-        ticketCount: canReserve.length,
-        totalPrice,
-        phone,
-        deliveryAddr: address,
-        deliveryName: name,
-      });
-
-      // 충분하면, 사용자의 포인트 차감
-      const reason = `티켓 예매: 예매번호 ${newBooking.id}번`;
-      await this.memberService.decreasePoint(
-        queryRunner,
-        member.id,
-        totalPrice,
-        reason,
-      );
-
-      // 좌석 상태 업데이트
-      for (const seat of canReserve) {
-        await this.seatService.updateForReserve(
-          queryRunner,
-          seat.id,
-          newBooking.id,
-        );
-      }
-
-      await queryRunner.commitTransaction();
-
-      return newBooking;
+      // lock 해제
+      await lock.release();
     } catch (err) {
-      await queryRunner.rollbackTransaction();
-      throw err;
-    } finally {
-      await queryRunner.release();
+      throw new ConflictException('예매가 불가능합니다.');
     }
   }
 

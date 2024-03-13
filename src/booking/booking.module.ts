@@ -10,6 +10,7 @@ import { PointHistory } from 'src/member/entities/pointHistory.entity';
 import { SeatModule } from 'src/seat/seat.module';
 import { MemberModule } from 'src/member/member.module';
 import { EventTimeModule } from 'src/event-time/event-time.module';
+import { RedlockModule } from 'src/redlock/redlock.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { EventTimeModule } from 'src/event-time/event-time.module';
     SeatModule,
     MemberModule,
     EventTimeModule,
+    RedlockModule,
   ],
   providers: [BookingService],
   controllers: [BookingController],

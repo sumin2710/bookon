@@ -20,6 +20,8 @@ import { Xml2objectModule } from './xml2object/xml2object.module';
 import { VenueModule } from './venue/venue.module';
 import { EventTimeModule } from './event-time/event-time.module';
 import { SeatModule } from './seat/seat.module';
+import { RedisModule } from './redis/redis.module';
+import { RedlockModule } from './redlock/redlock.module';
 
 const typeOrmModuleOptions = {
   useFactory: async (
@@ -74,6 +76,8 @@ const typeOrmModuleOptions = {
     VenueModule,
     EventTimeModule,
     SeatModule,
+    RedisModule,
+    RedlockModule,
   ],
   controllers: [],
   providers: [],
