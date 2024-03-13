@@ -43,6 +43,8 @@ export class BookingController {
   /** 예매 취소 */
   @Delete('member/booking/:id')
   async cancel(@MemberInfo() member: Member, @Param('id') id: number) {
-    return await this.bookingService.cancel(member.id, id);
+    if (await this.bookingService.cancel(member.id, id)) {
+      return { message: '예매가 취소되었습니다.' };
+    }
   }
 }

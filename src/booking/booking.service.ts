@@ -8,16 +8,14 @@ import {
 import { DataSource, Repository } from 'typeorm';
 import { Booking } from './entities/booking.entity';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Seat } from 'src/seat/entities/seat.entity';
 import { ReserveDto } from './dto/reserve.dto';
 import { EventService } from 'src/event/event.service';
-import { Member } from 'src/member/entities/member.entity';
-import { PointHistory } from 'src/member/entities/pointHistory.entity';
 import { SeatService } from 'src/seat/seat.service';
 import { MemberService } from 'src/member/member.service';
 import { EventTimeService } from 'src/event-time/event-time.service';
 import _ from 'lodash';
 import { RedlockService } from 'src/redlock/redlock.service';
+import { Lock } from 'redlock';
 
 @Injectable()
 export class BookingService {
@@ -103,7 +101,7 @@ export class BookingService {
     const resource = `locks:ticket:${eventId}`;
     const ttl = 1000; // ms
 
-    let lock;
+    let lock: Lock;
     try {
       lock = await redlock.acquire([resource], ttl); // lock 획득 시도
 
@@ -190,6 +188,9 @@ export class BookingService {
       where: {
         memberId,
       },
+      relations: {
+        seats: true,
+      },
     });
     if (bookings.length === 0) {
       throw new NotFoundException('예매하신 이력이 없습니다.');
@@ -262,6 +263,7 @@ export class BookingService {
       await this.seatService.updateForCancel(queryRunner, id);
 
       await queryRunner.commitTransaction();
+      return true;
     } catch (err) {
       await queryRunner.rollbackTransaction();
       throw err;
