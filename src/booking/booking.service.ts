@@ -17,9 +17,11 @@ import { SeatService } from 'src/seat/seat.service';
 import { MemberService } from 'src/member/member.service';
 import { EventTimeService } from 'src/event-time/event-time.service';
 import _ from 'lodash';
-
+import Redlock from 'redlock';
 @Injectable()
 export class BookingService {
+  private redlock: Redlock;
+
   constructor(
     @InjectRepository(Booking)
     private readonly bookingRepository: Repository<Booking>,
@@ -96,6 +98,7 @@ export class BookingService {
       throw new ConflictException('선택하신 좌석들이 이미 예매되었습니다.');
     }
 
+    // 트랜잭션 시작
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
