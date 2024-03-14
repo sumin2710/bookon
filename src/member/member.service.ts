@@ -47,6 +47,8 @@ export class MemberService {
       change: 1000000,
       reason: '첫 회원가입 기념 백만포인트 지급',
     });
+
+    return { message: '회원가입에 성공했습니다.' };
   }
 
   async login(email: string, pw: string) {
@@ -76,6 +78,8 @@ export class MemberService {
     }
 
     await this.memberRepository.update({ id }, updateProfileDto);
+
+    return { message: '사용자 정보가 수정되었습니다' };
   }
 
   async decreasePoint(
