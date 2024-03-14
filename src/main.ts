@@ -19,7 +19,12 @@ async function bootstrap() {
     .setDescription('bookon API 문서입니다.')
     .setVersion('1.0.0')
     .addBearerAuth(
-      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        in: 'header',
+      },
       'accessToken',
     )
     .build();

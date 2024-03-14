@@ -13,6 +13,7 @@ import { ReserveDto } from './dto/reserve.dto';
 import { MemberInfo } from 'src/utils/memberInfo.decorator';
 import { Member } from 'src/member/entities/member.entity';
 import {
+  ApiBearerAuth,
   ApiBody,
   ApiOperation,
   ApiParam,
@@ -24,6 +25,7 @@ import { string } from 'joi';
 
 @ApiTags('예매 API')
 @UseGuards(AuthGuard('jwt'))
+@ApiBearerAuth('accessToken')
 @Controller()
 export class BookingController {
   constructor(private readonly bookingService: BookingService) {}

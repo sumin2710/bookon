@@ -7,6 +7,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { Member } from './entities/member.entity';
 import { MemberInfo } from 'src/utils/memberInfo.decorator';
 import {
+  ApiBearerAuth,
   ApiBody,
   ApiOperation,
   ApiParam,
@@ -46,6 +47,7 @@ export class MemberController {
 
   @UseGuards(AuthGuard('jwt'))
   @Put()
+  @ApiBearerAuth('accessToken')
   @ApiOperation({ summary: '사용자 프로필 수정' })
   @ApiBody({ type: UpdateProfileDto })
   @ApiResponse({ status: 200, description: '수정 성공 메시지', type: String })
@@ -58,6 +60,7 @@ export class MemberController {
 
   @UseGuards(AuthGuard('jwt'))
   @Get()
+  @ApiBearerAuth('accessToken')
   @ApiOperation({ summary: '프로필 조회' })
   @ApiResponse({ status: 200, description: '멤버 정보', type: Member })
   async getProfile(@MemberInfo() member: Member) {

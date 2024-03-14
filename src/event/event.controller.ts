@@ -19,6 +19,7 @@ import { AdminGuard } from 'src/auth/admin.guard';
 import { CreateKopisEventDto } from './dto/createKopisEvent.dto';
 import { KopisapiService } from 'src/kopisapi/kopisapi.service';
 import {
+  ApiBearerAuth,
   ApiBody,
   ApiOperation,
   ApiParam,
@@ -39,6 +40,7 @@ export class EventController {
   /** 공연명으로 검색 */
   @UseGuards(AuthGuard('jwt'))
   @Get('/search')
+  @ApiBearerAuth('accessToken')
   @ApiOperation({ summary: '공연명으로 검색하기' })
   @ApiResponse({ status: 200, description: '공연 정보', type: [Event] })
   @ApiBody({ type: SearchEventDto })
@@ -49,6 +51,7 @@ export class EventController {
   /** kopis로 공연 생성 */
   @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Post('/kopis')
+  @ApiBearerAuth('accessToken')
   @ApiOperation({ summary: 'KOPIS로 공연 생성하기' })
   @ApiResponse({ status: 200, description: '공연 정보', type: Event })
   @ApiBody({ type: CreateKopisEventDto })
@@ -59,7 +62,9 @@ export class EventController {
     );
   }
 
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Get('/kopis')
+  @ApiBearerAuth('accessToken')
   @ApiOperation({ summary: 'KOPIS에서 가져온 공연 목록 조회하기' })
   @ApiResponse({ status: 200, description: '공연 정보' })
   @ApiBody({ type: CreateKopisEventDto })
@@ -70,7 +75,9 @@ export class EventController {
     );
   }
 
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Get('/kopis/:mt20id')
+  @ApiBearerAuth('accessToken')
   @ApiOperation({ summary: 'KOPIS로 공연 상세 조회하기' })
   @ApiResponse({ status: 200, description: '공연 정보' })
   @ApiParam({
@@ -85,6 +92,7 @@ export class EventController {
   /** 공연 생성 */
   @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Post()
+  @ApiBearerAuth('accessToken')
   @UseInterceptors(FileInterceptor('poster'))
   @ApiOperation({ summary: '공연 생성하기' })
   @ApiResponse({ status: 200, description: '공연 정보', type: Event })
@@ -122,6 +130,7 @@ export class EventController {
   /** 공연의 좌석 예매 정보 확인(예매 가능 좌석 조회) */
   @UseGuards(AuthGuard('jwt'))
   @Get(':id/seats')
+  @ApiBearerAuth('accessToken')
   @ApiOperation({ summary: '공연의 예매 가능 좌석 조회하기' })
   @ApiResponse({ status: 200, description: '좌석 정보', type: [Seat] })
   @ApiParam({ name: 'id', required: true, description: '공연 아이디' })
